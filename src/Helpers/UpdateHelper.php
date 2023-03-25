@@ -12,6 +12,12 @@ class UpdateHelper
     private $tmp_backup_dir = null;
     private $response_html = '';
 
+
+    private function initTmpBackupDir()
+    {
+        $this->tmp_backup_dir = storage_path('app/laraupdater') . '/backup_' . date('Ymd');
+    }
+
     public function log($msg, $append_response = false, $type = 'info')
     {
         //Response HTML
@@ -76,6 +82,9 @@ class UpdateHelper
         } catch (\Exception $e) {
             $this->log(trans("laraupdater.EXCEPTION") . '<small>' . $e->getMessage() . '</small>', true, 'err');
             $this->recovery();
+
+            // up laravel after recovery on error
+            Artisan::call('up');
         }
     }
 
@@ -85,43 +94,58 @@ class UpdateHelper
             $execute_commands = false;
             $update_script = base_path() . '/' . config('laraupdater.tmp_folder_name') . '/' . config('laraupdater.script_filename');
 
-            $zipHandle = zip_open($archive);
-            $archive = substr($archive, 0, -4);
 
-            $this->log(trans("laraupdater.CHANGELOG"), true, 'info');
+            $zip = new \ZipArchive();
+            if ($zip->open($archive)) {
+                $archive = substr($archive, 0, -4);
 
-            while ($zip_item = zip_read($zipHandle)) {
-                $filename = zip_entry_name($zip_item);
-                $dirname = dirname($filename);
+                // check if upgrade_scipr exist
+                $update_script_content = $zip->getFromName(config('laraupdater.script_filename'));
+                print($update_script_content);
+                if ($update_script_content) {
+                    File::put($update_script, $update_script_content);
 
-                // Exclude files
-                if (substr($filename, -1, 1) == '/' || dirname($filename) === $archive || substr($dirname, 0, 2) === '__') {
-                    continue;
+                    // include update script;
+                    include_once $update_script;
+                    $execute_commands = true;
+
+                    // run beforeUpdate function from update script
+                    beforeUpdate();
                 }
 
-                if (strpos($filename, 'version.txt') !== false) {
-                    continue;
-                }
 
-                if (substr($dirname, 0, strlen($archive)) === $archive) {
-                    $dirname = substr($dirname, (strlen($dirname) - strlen($archive) - 1) * (-1));
-                }
+                $this->log(trans("laraupdater.CHANGELOG"), true, 'info');
 
-                $filename = $dirname . '/' . basename($filename); //set new purify path for current file
 
-                if (!is_dir(base_path() . '/' . $dirname)) { //Make NEW directory (if exist also in current version continue...)
-                    File::makeDirectory(base_path() . '/' . $dirname, $mode = 0755, true, true);
-                    $this->log(trans("laraupdater.DIRECTORY_CREATED") . $dirname, true, 'info');
-                }
+                for ($indexFile = 0; $indexFile < $zip->numFiles; $indexFile++) {
+                    $filename = $zip->getNameIndex($indexFile);
+                    $dirname = dirname($filename);
 
-                if (!is_dir(base_path() . '/' . $filename)) { //Overwrite a file with its last version
-                    $contents = zip_entry_read($zip_item, zip_entry_filesize($zip_item));
-                    $contents = str_replace("\r\n", "\n", $contents);
+                    // Exclude files
 
-                    if (strpos($filename, 'upgrade.php') !== false) {
-                        File::put($update_script, $contents);
-                        $execute_commands = true;
-                    } else {
+                    if (substr($filename, -1, 1) == '/' || dirname($filename) === $archive || substr($dirname, 0, 2) === '__') {
+                        continue;
+                    }
+
+                    if (strpos($filename, 'version.txt') !== false) {
+                        continue;
+                    }
+
+                    if (substr($dirname, 0, strlen($archive)) === $archive) {
+                        $dirname = substr($dirname, (strlen($dirname) - strlen($archive) - 1) * (-1));
+                    };
+
+
+                    $filename = $dirname . '/' . basename($filename); //set new purify path for current file
+
+                    if (!is_dir(base_path() . '/' . $dirname)) { //Make NEW directory (if exist also in current version continue...)
+                        File::makeDirectory(base_path() . '/' . $dirname, 0755, true, true);
+                        $this->log(trans("laraupdater.DIRECTORY_CREATED") . $dirname, true, 'info');
+                    }
+
+                    if (!is_dir(base_path() . '/' . $filename)) { //Overwrite a file with its last version
+                        $contents = $zip->getFromIndex($indexFile);
+                        $contents = str_replace("\r\n", "\n", $contents);
                         if (File::exists(base_path() . '/' . $filename)) {
                             $this->log(trans("laraupdater.FILE_EXIST") . $filename, true, 'info');
                             $this->backup($filename); //backup current version
@@ -133,20 +157,19 @@ class UpdateHelper
                         unset($contents);
                     }
                 }
-            }
-            zip_close($zipHandle);
+                $zip->close();
 
-            if ($execute_commands == true) {
-                include_once $update_script;
-                // upgrade-VERSION.php contains the 'main()' method with a BOOL return to check its execution.
-                main();
-                unlink($update_script);
-                $this->log(trans("laraupdater.EXECUTE_UPDATE_SCRIPT") . ' (\'upgrade.php\')', true, 'info');
-            }
+                if ($execute_commands == true) {
+                    // upgrade-VERSION.php contains the 'main()' method with a BOOL return to check its execution.
+                    afterUpdate();
+                    unlink($update_script);
+                    $this->log(trans("laraupdater.EXECUTE_UPDATE_SCRIPT") . ' (\'upgrade.php\')', true, 'info');
+                }
 
-            File::delete($archive);
-            File::deleteDirectory($this->tmp_backup_dir);
-            $this->log(trans("laraupdater.TEMP_CLEANED"), true, 'info');
+                File::delete($archive);
+                File::deleteDirectory($this->tmp_backup_dir);
+                $this->log(trans("laraupdater.TEMP_CLEANED"), true, 'info');
+            }
         } catch (\Exception $e) {
             $this->log(trans("laraupdater.EXCEPTION") . '<small>' . $e->getMessage() . '</small>', true, 'err');
             return false;
@@ -225,7 +248,7 @@ class UpdateHelper
     private function backup($filename)
     {
         if (!isset($this->tmp_backup_dir)) {
-            $this->tmp_backup_dir = base_path() . '/backup_' . date('Ymd');
+            $this->initTmpBackupDir();
         }
 
         $backup_dir = $this->tmp_backup_dir;
@@ -247,8 +270,8 @@ class UpdateHelper
     {
         $this->log(trans("laraupdater.RECOVERY") . '<small>' . $e . '</small>', true, 'info');
 
-        if (!isset($this->tmp_backup_dir)) {
-            $this->tmp_backup_dir = base_path() . '/backup_' . date('Ymd');
+        if (!isset($this->tmp_backup_dir)) {;
+            $this->initTmpBackupDir();
             $this->log(trans("laraupdater.BACKUP_FOUND") . '<small>' . $this->tmp_backup_dir . '</small>', true, 'info');
         }
 
