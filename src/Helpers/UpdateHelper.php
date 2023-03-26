@@ -101,7 +101,7 @@ class UpdateHelper
 
                 // check if upgrade_scipr exist
                 $update_script_content = $zip->getFromName(config('laraupdater.script_filename'));
-                print($update_script_content);
+                // print($update_script_content);
                 if ($update_script_content) {
                     File::put($update_script, $update_script_content);
 
@@ -144,8 +144,6 @@ class UpdateHelper
                     }
 
                     if (!is_dir(base_path() . '/' . $filename)) { //Overwrite a file with its last version
-                        $contents = $zip->getFromIndex($indexFile);
-                        $contents = str_replace("\r\n", "\n", $contents);
                         if (File::exists(base_path() . '/' . $filename)) {
                             $this->log(trans("laraupdater.FILE_EXIST") . $filename, true, 'info');
                             $this->backup($filename); //backup current version
@@ -153,8 +151,7 @@ class UpdateHelper
 
                         $this->log(trans("laraupdater.FILE_COPIED") . $filename, true, 'info');
 
-                        File::put(base_path() . '/' . $filename, $contents);
-                        unset($contents);
+                        $zip->extractTo(base_path(), $filename);
                     }
                 }
                 $zip->close();
