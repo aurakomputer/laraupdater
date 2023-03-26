@@ -12,6 +12,7 @@ class UpdateHelper
     private string $tmp_backup_dir;
     private string $response_html = '';
     private string $update_type;
+    private \GuzzleHttp\Client $guzzle;
 
 
     function __construct()
@@ -19,6 +20,7 @@ class UpdateHelper
         $this->tmp_backup_dir = storage_path('app/laraupdater') . '/backup_' . date('Ymd');
 
         $this->update_type = config('laraupdater.update_type');
+        $this->guzzle = new \GuzzleHttp\Client();
     }
 
 
@@ -64,7 +66,7 @@ class UpdateHelper
 
         try {
 
-            if (($last_version = $this->download($last_version_info['archive'])) === false) {
+            if (($last_version = $this->downloadUpdate($last_version_info['url'])) === false) {
                 return;
             }
 
@@ -182,7 +184,7 @@ class UpdateHelper
     /*
     * Download Update from $update_baseurl to $tmp_folder_name (local folder).
     */
-    private function download($filename)
+    private function downloadUpdate($url)
     {
         $this->log(trans("laraupdater.DOWNLOADING"), true, 'info');
 
@@ -193,19 +195,22 @@ class UpdateHelper
         }
 
         try {
-            $local_file = $tmp_folder_name . '/' . $filename;
-            $remote_file_url = config('laraupdater.update_baseurl') . '/' . $filename;
+            $local_file = $tmp_folder_name . '/' . basename($url);
 
-            $update = file_get_contents($remote_file_url);
-            file_put_contents($local_file, $update);
+            $this->guzzle->get(
+                $url,
+                [
+                    'save_to' => $local_file,
+                ]
+            );
+
+            $this->log(trans("laraupdater.DOWNLOADING_SUCCESS"), true, 'info');
+            return $local_file;
         } catch (\Exception $e) {
             $this->log(trans("laraupdater.DOWNLOADING_ERROR"), true, 'err');
             $this->log(trans("laraupdater.EXCEPTION") . '<small>' . $e->getMessage() . '</small>', true, 'err');
             return false;
         }
-
-        $this->log(trans("laraupdater.DOWNLOADING_SUCCESS"), true, 'info');
-        return $local_file;
     }
 
     /*
@@ -243,8 +248,7 @@ class UpdateHelper
             return $last_version;
         } else if ($this->update_type == 'github') {
             // generate last version data from github api
-            $client = new \GuzzleHttp\Client();
-            $response = $client->request('GET', 'https://api.github.com/repos/aurakomputer/sekolahku/releases/latest');
+            $response = $this->guzzle->request('GET', 'https://api.github.com/repos/aurakomputer/sekolahku/releases/latest');
 
             $json_data = $response->getBody();
             $data = json_decode($json_data);
@@ -256,7 +260,7 @@ class UpdateHelper
                     return [
                         'version'       => $data->name,
                         'description'   => $data->body,
-                        'archive'       => $asset->browser_download_url,
+                        'url'       => $asset->browser_download_url,
                     ];
                 }
             }
