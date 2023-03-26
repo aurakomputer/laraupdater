@@ -9,14 +9,18 @@ use Illuminate\Support\Facades\Log;
 
 class UpdateHelper
 {
-    private $tmp_backup_dir = null;
-    private $response_html = '';
+    private string $tmp_backup_dir;
+    private string $response_html = '';
+    private string $update_type;
 
 
-    private function initTmpBackupDir()
+    function __construct()
     {
         $this->tmp_backup_dir = storage_path('app/laraupdater') . '/backup_' . date('Ymd');
+
+        $this->update_type = config('laraupdater.update_type');
     }
+
 
     public function log($msg, $append_response = false, $type = 'info')
     {
@@ -225,7 +229,7 @@ class UpdateHelper
     public function check()
     {
         $last_version = $this->getLastVersion();
-        if (version_compare($last_version['version'], $this->getCurrentVersion(), ">")) {
+        if ($last_version && version_compare($last_version['version'], $this->getCurrentVersion(), ">")) {
             return $last_version;
         }
         return '';
@@ -233,10 +237,33 @@ class UpdateHelper
 
     private function getLastVersion()
     {
-        $last_version = file_get_contents(config('laraupdater.update_baseurl') . '/laraupdater.json');
-        $last_version = json_decode($last_version, true);
-        // $last_version : ['version' => $v, 'archive' => 'RELEASE-$v.zip', 'description' => 'plainText'];
-        return $last_version;
+        if ($this->update_type == 'url') {
+            $last_version = file_get_contents(config('laraupdater.update_baseurl') . '/laraupdater.json');
+            $last_version = json_decode($last_version, true);
+            return $last_version;
+        } else if ($this->update_type == 'github') {
+            // generate last version data from github api
+            $client = new \GuzzleHttp\Client();
+            $response = $client->request('GET', 'https://api.github.com/repos/aurakomputer/sekolahku/releases/latest');
+
+            $json_data = $response->getBody();
+            $data = json_decode($json_data);
+            // dump($response);
+
+
+            foreach ($data->assets as $asset) {
+                if ($asset->name == 'release.zip') {
+                    return [
+                        'version'       => $data->name,
+                        'description'   => $data->body,
+                        'archive'       => $asset->browser_download_url,
+                    ];
+                }
+            }
+
+
+            return null;
+        }
     }
 
     /*
@@ -244,9 +271,6 @@ class UpdateHelper
     */
     private function backup($filename)
     {
-        if (!isset($this->tmp_backup_dir)) {
-            $this->initTmpBackupDir();
-        }
 
         $backup_dir = $this->tmp_backup_dir;
         if (!is_dir($backup_dir)) {
@@ -266,11 +290,6 @@ class UpdateHelper
     private function recovery()
     {
         $this->log(trans("laraupdater.RECOVERY") . '<small>' . $e . '</small>', true, 'info');
-
-        if (!isset($this->tmp_backup_dir)) {;
-            $this->initTmpBackupDir();
-            $this->log(trans("laraupdater.BACKUP_FOUND") . '<small>' . $this->tmp_backup_dir . '</small>', true, 'info');
-        }
 
         try {
             $backup_dir = $this->tmp_backup_dir;
