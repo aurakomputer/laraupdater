@@ -220,7 +220,7 @@ class UpdateHelper
     {
         // todo: env file version
         $version = File::get(base_path() . '/version.txt');
-        return $version;
+        return trim(preg_replace('/\s\s+/', ' ', $version));
     }
     private function setCurrentVersion($version)
     {
