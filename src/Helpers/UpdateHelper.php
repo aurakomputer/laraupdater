@@ -197,10 +197,11 @@ class UpdateHelper
         try {
             $local_file = $tmp_folder_name . '/' . basename($url);
 
+            $update_file = fopen($local_file, "w");
             $this->guzzle->get(
                 $url,
                 [
-                    'save_to' => $local_file,
+                    'save_to' =>  $update_file,
                 ]
             );
 
