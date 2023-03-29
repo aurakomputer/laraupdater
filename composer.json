@@ -1,5 +1,5 @@
 {
-    "name": "pcinaglia/laraupdater",
+    "name": "aurakomputer/laraupdater",
     "description": "LaraUpdater allows your Laravel application to auto-update itself.",
     "keywords": [
         "self-updater",
@@ -8,7 +8,7 @@
         "laravel",
         "backup-restore"
     ],
-    "homepage": "https://github.com/pietrocinaglia/laraupdater",
+    "homepage": "https://github.com/aurakomputer/laraupdater",
     "require": {
         "php": ">=7.0.0 || ^8.0",
         "illuminate/support": "^8.28 || ^9.0 || ^10.0"
@@ -24,6 +24,11 @@
             "name": "Mohamad Supangat",
             "homepage": "https://github.com/mohamad-supangat",
             "role": "Software Engineer."
+        },
+        {
+            "name": "AuraKomputer",
+            "homepage": "https://github.com/aurakomputer",
+            "role": "Software House."
         }
     ],
     "minimum-stability": "dev",
