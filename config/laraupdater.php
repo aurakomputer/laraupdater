@@ -16,10 +16,21 @@ return [
     */
     'script_filename' => 'upgrade.php',
 
-    /*
-    * URL where your updates are stored ( e.g. for a folder named 'updates', under http://site.com/yourapp ).
-    */
-    'update_baseurl' => 'http://localhost:8888/update',
+
+    // update type for downloading latest update
+    // support url, github
+    'update_type' => 'github',
+
+    // config for url type repo
+    'url' => [
+        // URL where your updates are stored ( e.g. for a folder named 'updates', unde http://site.com/yourapp
+        'update_baseurl' => 'http://localhost:8888/update',
+    ],
+
+    // config for github repo
+    'github' => [
+        'repo' => 'aurakomputer/laraupdater'
+    ],
 
     /*
     * Set a middleware for the route: updater.update

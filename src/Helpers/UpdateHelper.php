@@ -9,14 +9,20 @@ use Illuminate\Support\Facades\Log;
 
 class UpdateHelper
 {
-    private $tmp_backup_dir = null;
-    private $response_html = '';
+    private string $tmp_backup_dir;
+    private string $response_html = '';
+    private string $update_type;
+    private \GuzzleHttp\Client $guzzle;
 
 
-    private function initTmpBackupDir()
+    function __construct()
     {
         $this->tmp_backup_dir = storage_path('app/laraupdater') . '/backup_' . date('Ymd');
+
+        $this->update_type = config('laraupdater.update_type');
+        $this->guzzle = new \GuzzleHttp\Client();
     }
+
 
     public function log($msg, $append_response = false, $type = 'info')
     {
@@ -60,7 +66,7 @@ class UpdateHelper
 
         try {
 
-            if (($last_version = $this->download($last_version_info['archive'])) === false) {
+            if (($last_version = $this->downloadUpdate($last_version_info['url'])) === false) {
                 return;
             }
 
@@ -101,7 +107,7 @@ class UpdateHelper
 
                 // check if upgrade_scipr exist
                 $update_script_content = $zip->getFromName(config('laraupdater.script_filename'));
-                print($update_script_content);
+                // print($update_script_content);
                 if ($update_script_content) {
                     File::put($update_script, $update_script_content);
 
@@ -144,8 +150,6 @@ class UpdateHelper
                     }
 
                     if (!is_dir(base_path() . '/' . $filename)) { //Overwrite a file with its last version
-                        $contents = $zip->getFromIndex($indexFile);
-                        $contents = str_replace("\r\n", "\n", $contents);
                         if (File::exists(base_path() . '/' . $filename)) {
                             $this->log(trans("laraupdater.FILE_EXIST") . $filename, true, 'info');
                             $this->backup($filename); //backup current version
@@ -153,8 +157,7 @@ class UpdateHelper
 
                         $this->log(trans("laraupdater.FILE_COPIED") . $filename, true, 'info');
 
-                        File::put(base_path() . '/' . $filename, $contents);
-                        unset($contents);
+                        $zip->extractTo(base_path(), $filename);
                     }
                 }
                 $zip->close();
@@ -181,7 +184,7 @@ class UpdateHelper
     /*
     * Download Update from $update_baseurl to $tmp_folder_name (local folder).
     */
-    private function download($filename)
+    private function downloadUpdate($url)
     {
         $this->log(trans("laraupdater.DOWNLOADING"), true, 'info');
 
@@ -192,19 +195,23 @@ class UpdateHelper
         }
 
         try {
-            $local_file = $tmp_folder_name . '/' . $filename;
-            $remote_file_url = config('laraupdater.update_baseurl') . '/' . $filename;
+            $local_file = $tmp_folder_name . '/' . basename($url);
 
-            $update = file_get_contents($remote_file_url);
-            file_put_contents($local_file, $update);
+            $update_file = fopen($local_file, "w");
+            $this->guzzle->get(
+                $url,
+                [
+                    'save_to' =>  $update_file,
+                ]
+            );
+
+            $this->log(trans("laraupdater.DOWNLOADING_SUCCESS"), true, 'info');
+            return $local_file;
         } catch (\Exception $e) {
             $this->log(trans("laraupdater.DOWNLOADING_ERROR"), true, 'err');
             $this->log(trans("laraupdater.EXCEPTION") . '<small>' . $e->getMessage() . '</small>', true, 'err');
             return false;
         }
-
-        $this->log(trans("laraupdater.DOWNLOADING_SUCCESS"), true, 'info');
-        return $local_file;
     }
 
     /*
@@ -214,7 +221,7 @@ class UpdateHelper
     {
         // todo: env file version
         $version = File::get(base_path() . '/version.txt');
-        return $version;
+        return trim(preg_replace('/\s\s+/', ' ', $version));
     }
     private function setCurrentVersion($version)
     {
@@ -228,7 +235,7 @@ class UpdateHelper
     public function check()
     {
         $last_version = $this->getLastVersion();
-        if (version_compare($last_version['version'], $this->getCurrentVersion(), ">")) {
+        if ($last_version && version_compare($last_version['version'], $this->getCurrentVersion(), ">")) {
             return $last_version;
         }
         return '';
@@ -236,10 +243,32 @@ class UpdateHelper
 
     private function getLastVersion()
     {
-        $last_version = file_get_contents(config('laraupdater.update_baseurl') . '/laraupdater.json');
-        $last_version = json_decode($last_version, true);
-        // $last_version : ['version' => $v, 'archive' => 'RELEASE-$v.zip', 'description' => 'plainText'];
-        return $last_version;
+        if ($this->update_type == 'url') {
+            $last_version = file_get_contents(config('laraupdater.update_baseurl') . '/laraupdater.json');
+            $last_version = json_decode($last_version, true);
+            return $last_version;
+        } else if ($this->update_type == 'github') {
+            // generate last version data from github api
+            $response = $this->guzzle->request('GET', 'https://api.github.com/repos/aurakomputer/sekolahku/releases/latest');
+
+            $json_data = $response->getBody();
+            $data = json_decode($json_data);
+            // dump($response);
+
+
+            foreach ($data->assets as $asset) {
+                if ($asset->name == 'release.zip') {
+                    return [
+                        'version'       => $data->name,
+                        'description'   => $data->body,
+                        'url'       => $asset->browser_download_url,
+                    ];
+                }
+            }
+
+
+            return null;
+        }
     }
 
     /*
@@ -247,9 +276,6 @@ class UpdateHelper
     */
     private function backup($filename)
     {
-        if (!isset($this->tmp_backup_dir)) {
-            $this->initTmpBackupDir();
-        }
 
         $backup_dir = $this->tmp_backup_dir;
         if (!is_dir($backup_dir)) {
@@ -269,11 +295,6 @@ class UpdateHelper
     private function recovery()
     {
         $this->log(trans("laraupdater.RECOVERY") . '<small>' . $e . '</small>', true, 'info');
-
-        if (!isset($this->tmp_backup_dir)) {;
-            $this->initTmpBackupDir();
-            $this->log(trans("laraupdater.BACKUP_FOUND") . '<small>' . $this->tmp_backup_dir . '</small>', true, 'info');
-        }
 
         try {
             $backup_dir = $this->tmp_backup_dir;

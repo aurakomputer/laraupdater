@@ -180,7 +180,7 @@ Create a file named `laraupdater.json` like this:
 ```json
 {
   "version": "1.0.2",
-  "archive": "RELEASE-1.02.zip",
+  "url": "http://localhost/RELEASE-1.02.zip",
   "description": "Minor bugs fix"
 }
 ```
