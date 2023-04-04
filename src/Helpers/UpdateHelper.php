@@ -15,7 +15,7 @@ class UpdateHelper
     private \GuzzleHttp\Client $guzzle;
 
 
-    function __construct()
+    public function __construct()
     {
         $this->tmp_backup_dir = storage_path('app/laraupdater') . '/backup_' . date('Ymd');
 
@@ -45,7 +45,7 @@ class UpdateHelper
         if (app()->runningInConsole()) {
             dump($header . ' - ' . $msg);
         } else {
-            echo ($header . ' - ' . $msg . "<br/>");
+            echo($header . ' - ' . $msg . "<br/>");
         }
     }
 
@@ -121,6 +121,9 @@ class UpdateHelper
 
 
                 $this->log(trans("laraupdater.CHANGELOG"), true, 'info');
+
+                // dump($archive);
+                // die();
 
 
                 for ($indexFile = 0; $indexFile < $zip->numFiles; $indexFile++) {
@@ -198,12 +201,12 @@ class UpdateHelper
             $local_file = $tmp_folder_name . '/' . basename($url);
 
             $update_file = fopen($local_file, "w");
-            $this->guzzle->get(
+            $assetResponse = $this->guzzle->get(
                 $url,
-                [
-                    'save_to' =>  $update_file,
-                ]
             );
+
+            file_put_contents($local_file, $assetResponse->getBody());
+            // die($url);
 
             $this->log(trans("laraupdater.DOWNLOADING_SUCCESS"), true, 'info');
             return $local_file;
@@ -247,7 +250,7 @@ class UpdateHelper
             $last_version = file_get_contents(config('laraupdater.update_baseurl') . '/laraupdater.json');
             $last_version = json_decode($last_version, true);
             return $last_version;
-        } else if ($this->update_type == 'github') {
+        } elseif ($this->update_type == 'github') {
             // generate last version data from github api
             $response = $this->guzzle->request('GET', 'https://api.github.com/repos/aurakomputer/sekolahku/releases/latest');
 
