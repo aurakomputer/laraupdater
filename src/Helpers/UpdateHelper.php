@@ -151,7 +151,7 @@ class UpdateHelper
                     };
 
 
-                    $filename = $dirname . '/' . basename($filename); //set new purify path for current file
+                    // $filename = $dirname . '/' . basename($filename); //set new purify path for current file
 
                     if (!is_dir(base_path() . '/' . $dirname)) { //Make NEW directory (if exist also in current version continue...)
                         File::makeDirectory(base_path() . '/' . $dirname, 0755, true, true);
@@ -165,7 +165,8 @@ class UpdateHelper
                         }
 
                         $this->log(trans("laraupdater.FILE_COPIED") . $filename, true, 'info');
-
+;
+                        // dd($filename);
                         $zip->extractTo(base_path(), $filename);
                     }
                 }
@@ -253,7 +254,7 @@ class UpdateHelper
     private function getLastVersion()
     {
         if ($this->update_type == 'url') {
-            $last_version = file_get_contents(config('laraupdater.update_baseurl') . '/laraupdater.json');
+            $last_version = file_get_contents(config('laraupdater.url.update_baseurl') . '/laraupdater.json');
             $last_version = json_decode($last_version, true);
             return $last_version;
         } elseif ($this->update_type == 'github') {
@@ -323,3 +324,4 @@ class UpdateHelper
         return true;
     }
 }
+
