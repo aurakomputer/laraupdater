@@ -140,6 +140,12 @@ class UpdateHelper
                         continue;
                     }
 
+
+                    $excludes = config('laraupdater.excludes');
+                    if (in_array($filename, $excludes)) {
+                        continue;
+                    }
+
                     if (substr($dirname, 0, strlen($archive)) === $archive) {
                         $dirname = substr($dirname, (strlen($dirname) - strlen($archive) - 1) * (-1));
                     };
