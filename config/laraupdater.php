@@ -43,5 +43,11 @@ return [
     * This parameter accepts: ARRAY(user_id) ,or FALSE => for example: [1]  OR  [1,3,0]  OR  false
     * Generally, ADMIN have user_id=1; set FALSE to disable this check (not recommended)
     */
-    'allow_users_id' => [1]
+    'allow_users_id' => [1],
+
+    /*
+    * exclude some file for updating
+    */
+
+    'excludes' => [],
 ];
