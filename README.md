@@ -1,8 +1,12 @@
-## Author and Contributor
+## Author
+
+This package originally created by
 
 - **Pietro Cinaglia** - Original Author - Contact using [GitHub](https://github.com/pietrocinaglia) or [LinkedIn](https://linkedin.com/in/pietrocinaglia)
 
-- **Aura Komputer** - Contact using [GitHub](https://github.com/aurakomputer)
+and has been fork and modified by
+
+- **Aura Komputer** - Contact using [GitHub](https://github.com/aurakomputer) or [Website](https://s.id/aurakomputer)
 
 # LaraUpdater [ self-update for your Laravel App ]
 
