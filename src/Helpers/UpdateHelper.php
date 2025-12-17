@@ -165,7 +165,7 @@ class UpdateHelper
                         }
 
                         $this->log(trans("laraupdater.FILE_COPIED") . $filename, true, 'info');
-;
+                        ;
                         // dd($filename);
                         $zip->extractTo(base_path(), $filename);
                     }
@@ -210,6 +210,12 @@ class UpdateHelper
             $update_file = fopen($local_file, "w");
             $assetResponse = $this->guzzle->get(
                 $url,
+                [
+                    'auth' => [
+                        config('laraupdater.url.username'),
+                        config('laraupdater.url.password'),
+                    ],
+                ],
             );
 
             file_put_contents($local_file, $assetResponse->getBody());
@@ -310,7 +316,7 @@ class UpdateHelper
             $backup_dir = $this->tmp_backup_dir;
             $backup_files = File::allFiles($backup_dir);
             foreach ($backup_files as $file) {
-                $filename = (string)$file;
+                $filename = (string) $file;
                 $filename = substr($filename, (strlen($filename) - strlen($backup_dir) - 1) * (-1));
                 File::copy($backup_dir . '/' . $filename, base_path() . '/' . $filename); //to respective folder
             }
@@ -324,4 +330,3 @@ class UpdateHelper
         return true;
     }
 }
-

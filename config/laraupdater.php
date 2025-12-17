@@ -25,6 +25,8 @@ return [
     'url' => [
         // URL where your updates are stored ( e.g. for a folder named 'updates', unde http://site.com/yourapp
         'update_baseurl' => 'http://localhost:8888/update',
+        'username' => null,
+        'password' => null,
     ],
 
     // config for github repo
