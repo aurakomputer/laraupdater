@@ -268,7 +268,7 @@ class UpdateHelper
             return $last_version;
         } elseif ($this->update_type == 'github') {
             // generate last version data from github api
-            $response = $this->guzzle->request('GET', 'https://api.github.com/repos/aurakomputer/sekolahku/releases/latest');
+            $response = $this->guzzle->request('GET', 'https://api.github.com/repos/' . config('laraupdater.github.repo') . '/releases/latest');
 
             $json_data = $response->getBody();
             $data = json_decode($json_data);
