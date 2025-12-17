@@ -20,7 +20,12 @@ class UpdateHelper
         $this->tmp_backup_dir = storage_path('app/laraupdater') . '/backup_' . date('Ymd');
 
         $this->update_type = config('laraupdater.update_type');
-        $this->guzzle = new \GuzzleHttp\Client();
+        $this->guzzle = new \GuzzleHttp\Client([
+            'auth' => [
+                config('laraupdater.url.username'),
+                config('laraupdater.url.password'),
+            ],
+        ]);
     }
 
 
@@ -106,7 +111,7 @@ class UpdateHelper
                 $archive = substr($archive, 0, -4);
 
                 // check if upgrade_scipr exist
-                $update_script_content = $zip->getFromName(config('laraupdater.script_filename'));
+                $update_script_content = $zip->etFromName(config('laraupdater.script_filename'));
                 // print($update_script_content);
                 if ($update_script_content) {
                     File::put($update_script, $update_script_content);
@@ -210,12 +215,6 @@ class UpdateHelper
             $update_file = fopen($local_file, "w");
             $assetResponse = $this->guzzle->get(
                 $url,
-                [
-                    'auth' => [
-                        config('laraupdater.url.username'),
-                        config('laraupdater.url.password'),
-                    ],
-                ],
             );
 
             file_put_contents($local_file, $assetResponse->getBody());
@@ -236,7 +235,11 @@ class UpdateHelper
     public function getCurrentVersion()
     {
         // todo: env file version
-        $version = File::get(base_path() . '/version.txt');
+        if (File::exists(base_path() . '/version.txt')) {
+            $version = File::get(base_path() . '/version.txt');
+        } else {
+            $version = 0;
+        }
         return trim(preg_replace('/\s\s+/', ' ', $version));
     }
     private function setCurrentVersion($version)
@@ -260,8 +263,8 @@ class UpdateHelper
     private function getLastVersion()
     {
         if ($this->update_type == 'url') {
-            $last_version = file_get_contents(config('laraupdater.url.update_baseurl') . '/laraupdater.json');
-            $last_version = json_decode($last_version, true);
+            $response = $this->guzzle->get(config('laraupdater.url.update_baseurl') . '/laraupdater.json');
+            $last_version = json_decode($response->getBody(), true);
             return $last_version;
         } elseif ($this->update_type == 'github') {
             // generate last version data from github api
