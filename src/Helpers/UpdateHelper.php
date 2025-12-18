@@ -111,7 +111,7 @@ class UpdateHelper
                 $archive = substr($archive, 0, -4);
 
                 // check if upgrade_scipr exist
-                $update_script_content = $zip->etFromName(config('laraupdater.script_filename'));
+                $update_script_content = $zip->getFromName(config('laraupdater.script_filename'));
                 // print($update_script_content);
                 if ($update_script_content) {
                     File::put($update_script, $update_script_content);
